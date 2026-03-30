@@ -1,0 +1,71 @@
+# Определяем время
+scalar Time
+
+# Параментры для постов
+type Post {
+  id: ID!
+  title: String!
+  content: String!
+  authorID: ID!
+  commentsEnabled: Boolean!
+  createdAt: Time!
+  comments(offset: Int = 0, limit: Int = 10): [Comment!]!
+}
+
+# Параментры для комментариев
+type Comment {
+  id: ID!
+  postID: ID!
+  parentID: ID # Может быть null, если это комментарий верхнего уровня
+  content: String!
+  authorID: ID!
+  createdAt: Time!
+  children(offset: Int = 0, limit: Int = 10): [Comment!]!
+}
+
+# Входные данные для создания нового поста
+input NewPost {
+  title: String!
+  content: String!
+  authorID: ID!
+  commentsEnabled: Boolean = true # По умолчанию включены
+}
+
+# Входные данные для создания нового коммента
+input NewComment {
+  postID: ID!
+  parentID: ID # Может быть null, если это комментарий верхнего уровня
+  content: String! 
+  authorID: ID!
+}
+
+# Параметры для запросов внутри сервиса
+type Query {
+  posts(offset: Int = 0, limit: Int = 10): [Post!]!
+  post(id: ID!): Post
+  comments(
+    postID: ID!
+    parentID: ID
+    offset: Int = 0
+    limit: Int = 10
+  ): [Comment!]!
+}
+
+# Определяем все доступные операции для изменения данных
+type Mutation {
+ createPost(input: NewPost!): Post!
+ createComment(input: NewComment!): Comment!
+
+ # Вкл/выкл комментарии под созданным постом
+ setCommentsEnabled(postID: ID!, enabled: Boolean!): Post!
+
+ deletePost(id: ID!): Boolean!
+ deleteComment(id: ID!): Boolean!
+}
+
+# Определяем подписки на события (новый комментарий) в реальном времени
+type Subscription {
+  commentAdded(
+    postID: ID!
+  ): Comment!
+}
