@@ -49,6 +49,7 @@ type Query {
     offset: Int = 0
     limit: Int = 10
   ): [Comment!]!
+  comment(id: ID!): Comment
 }
 
 # Определяем все доступные операции для изменения данных

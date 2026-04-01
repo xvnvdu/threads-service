@@ -52,6 +52,11 @@ func (r *queryResolver) Comments(ctx context.Context, postID string, parentID *s
 	panic(fmt.Errorf("not implemented: Comments - comments"))
 }
 
+// Comment is the resolver for the comment field.
+func (r *queryResolver) Comment(ctx context.Context, id string) (*model1.Comment, error) {
+	panic(fmt.Errorf("not implemented: Comment - comment"))
+}
+
 // CommentAdded is the resolver for the commentAdded field.
 func (r *subscriptionResolver) CommentAdded(ctx context.Context, postID string) (<-chan *model1.Comment, error) {
 	panic(fmt.Errorf("not implemented: CommentAdded - commentAdded"))
