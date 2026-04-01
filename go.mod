@@ -8,6 +8,7 @@ require (
 	github.com/99designs/gqlgen v0.17.89
 	github.com/google/uuid v1.6.0
 	github.com/vektah/gqlparser/v2 v2.5.32
+	go.uber.org/mock v0.6.0
 )
 
 require (
