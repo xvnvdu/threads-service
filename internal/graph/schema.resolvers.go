@@ -9,52 +9,202 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/xvnvdu/threads-service/internal/domain"
 	model1 "github.com/xvnvdu/threads-service/internal/graph/model"
+	"github.com/xvnvdu/threads-service/internal/repository"
 )
 
 // CreatePost is the resolver for the createPost field.
 func (r *mutationResolver) CreatePost(ctx context.Context, input model1.NewPost) (*model1.Post, error) {
-	panic(fmt.Errorf("not implemented: CreatePost - createPost"))
+	post := &domain.Post{
+		AuthorID:        input.AuthorID,
+		Title:           input.Title,
+		Content:         input.Content,
+		CommentsEnabled: true,
+	}
+	if input.CommentsEnabled != nil {
+		post.CommentsEnabled = *input.CommentsEnabled
+	}
+
+	createdPost, err := r.Service.CreatePost(ctx, post)
+	if err != nil {
+		return nil, fmt.Errorf("resolver: failed to create post: %w", err)
+	}
+	return &model1.Post{
+		ID:              createdPost.ID,
+		Title:           createdPost.Title,
+		Content:         createdPost.Content,
+		AuthorID:        createdPost.AuthorID,
+		CommentsEnabled: createdPost.CommentsEnabled,
+		CreatedAt:       createdPost.CreatedAt,
+		Comments:        nil,
+	}, nil
 }
 
 // CreateComment is the resolver for the createComment field.
 func (r *mutationResolver) CreateComment(ctx context.Context, input model1.NewComment) (*model1.Comment, error) {
-	panic(fmt.Errorf("not implemented: CreateComment - createComment"))
+	comment := &domain.Comment{
+		AuthorID: input.AuthorID,
+		PostID:   input.PostID,
+		ParentID: input.ParentID,
+		Content:  input.Content,
+	}
+
+	createdComment, err := r.Service.CreateComment(ctx, comment)
+	if err != nil {
+		return nil, fmt.Errorf("resolver: failed to create comment: %w", err)
+	}
+	return &model1.Comment{
+		ID:        createdComment.ID,
+		PostID:    createdComment.PostID,
+		ParentID:  createdComment.ParentID,
+		Content:   createdComment.Content,
+		AuthorID:  createdComment.AuthorID,
+		CreatedAt: createdComment.CreatedAt,
+		Children:  nil, // Детей пока нет
+	}, nil
 }
 
 // SetCommentsEnabled is the resolver for the setCommentsEnabled field.
 func (r *mutationResolver) SetCommentsEnabled(ctx context.Context, postID string, enabled bool) (*model1.Post, error) {
-	panic(fmt.Errorf("not implemented: SetCommentsEnabled - setCommentsEnabled"))
+	updatedPost, err := r.Service.SetCommentsEnabled(ctx, postID, enabled)
+	if err != nil {
+		return nil, fmt.Errorf("resolver: failed to set comments enabled: %w", err)
+	}
+
+	return &model1.Post{
+		ID:              updatedPost.ID,
+		Title:           updatedPost.Title,
+		Content:         updatedPost.Content,
+		AuthorID:        updatedPost.AuthorID,
+		CommentsEnabled: updatedPost.CommentsEnabled,
+		CreatedAt:       updatedPost.CreatedAt,
+	}, nil
 }
 
 // DeletePost is the resolver for the deletePost field.
 func (r *mutationResolver) DeletePost(ctx context.Context, id string) (bool, error) {
-	panic(fmt.Errorf("not implemented: DeletePost - deletePost"))
+	if err := r.Service.DeletePost(ctx, id); err != nil {
+		return false, fmt.Errorf("resolver: failed to delete post: %w", err)
+	}
+	return true, nil
 }
 
 // DeleteComment is the resolver for the deleteComment field.
 func (r *mutationResolver) DeleteComment(ctx context.Context, id string) (bool, error) {
-	panic(fmt.Errorf("not implemented: DeleteComment - deleteComment"))
+	if err := r.Service.DeleteComment(ctx, id); err != nil {
+		return false, fmt.Errorf("resolver: failed to delete comment: %w", err)
+	}
+	return true, nil
 }
 
 // Posts is the resolver for the posts field.
 func (r *queryResolver) Posts(ctx context.Context, offset *int32, limit *int32) ([]*model1.Post, error) {
-	panic(fmt.Errorf("not implemented: Posts - posts"))
+	var offsetVal int
+	if offset != nil {
+		offsetVal = int(*offset)
+	}
+	var limitVal int
+	if limit != nil {
+		limitVal = int(*limit)
+	}
+
+	posts, err := r.Service.GetPosts(ctx, limitVal, offsetVal)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get posts: %w", err)
+	}
+
+	result := make([]*model1.Post, len(posts))
+	for i, post := range posts {
+		result[i] = &model1.Post{
+			ID:              post.ID,
+			AuthorID:        post.AuthorID,
+			Title:           post.Title,
+			Content:         post.Content,
+			CommentsEnabled: post.CommentsEnabled,
+			CreatedAt:       post.CreatedAt,
+			Comments:        nil,
+		}
+	}
+	return result, nil
 }
 
 // Post is the resolver for the post field.
 func (r *queryResolver) Post(ctx context.Context, id string) (*model1.Post, error) {
-	panic(fmt.Errorf("not implemented: Post - post"))
+	post, err := r.Service.GetPostByID(ctx, id)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get post by ID: %w", err)
+	}
+	if post == nil {
+		return nil, nil
+	}
+
+	return &model1.Post{
+		ID:              post.ID,
+		AuthorID:        post.AuthorID,
+		Title:           post.Title,
+		Content:         post.Content,
+		CommentsEnabled: post.CommentsEnabled,
+		CreatedAt:       post.CreatedAt,
+		Comments:        nil,
+	}, nil
 }
 
 // Comments is the resolver for the comments field.
 func (r *queryResolver) Comments(ctx context.Context, postID string, parentID *string, offset *int32, limit *int32) ([]*model1.Comment, error) {
-	panic(fmt.Errorf("not implemented: Comments - comments"))
+	var limitVal, offsetVal int
+	if limit != nil {
+		limitVal = int(*limit)
+	}
+	if offset != nil {
+		offsetVal = int(*offset)
+	}
+
+	// Для комментов верхнего уровня сортировка по новизне
+	order := repository.CommentSortNewestFirst
+	if parentID != nil {
+		order = repository.CommentSortOldestFirst
+	}
+
+	comments, err := r.Service.GetComments(ctx, postID, parentID, limitVal, offsetVal, order)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get comments: %w", err)
+	}
+
+	result := make([]*model1.Comment, len(comments))
+	for i, c := range comments {
+		result[i] = &model1.Comment{
+			ID:        c.ID,
+			PostID:    c.PostID,
+			AuthorID:  c.AuthorID,
+			Content:   c.Content,
+			ParentID:  c.ParentID,
+			CreatedAt: c.CreatedAt,
+			Children:  nil,
+		}
+	}
+	return result, nil
 }
 
 // Comment is the resolver for the comment field.
 func (r *queryResolver) Comment(ctx context.Context, id string) (*model1.Comment, error) {
-	panic(fmt.Errorf("not implemented: Comment - comment"))
+	comment, err := r.Service.GetCommentByID(ctx, id)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get comment by ID: %w", err)
+	}
+	if comment == nil {
+		return nil, nil
+	}
+
+	return &model1.Comment{
+		ID:        comment.ID,
+		PostID:    comment.PostID,
+		AuthorID:  comment.AuthorID,
+		Content:   comment.Content,
+		ParentID:  comment.ParentID,
+		CreatedAt: comment.CreatedAt,
+		Children:  nil,
+	}, nil
 }
 
 // CommentAdded is the resolver for the commentAdded field.
@@ -71,6 +221,8 @@ func (r *Resolver) Query() QueryResolver { return &queryResolver{r} }
 // Subscription returns SubscriptionResolver implementation.
 func (r *Resolver) Subscription() SubscriptionResolver { return &subscriptionResolver{r} }
 
-type mutationResolver struct{ *Resolver }
-type queryResolver struct{ *Resolver }
-type subscriptionResolver struct{ *Resolver }
+type (
+	mutationResolver     struct{ *Resolver }
+	queryResolver        struct{ *Resolver }
+	subscriptionResolver struct{ *Resolver }
+)

@@ -12,6 +12,8 @@ import (
 	"github.com/99designs/gqlgen/graphql/playground"
 	"github.com/vektah/gqlparser/v2/ast"
 	"github.com/xvnvdu/threads-service/internal/graph"
+	"github.com/xvnvdu/threads-service/internal/repository/inmemory"
+	"github.com/xvnvdu/threads-service/internal/service"
 )
 
 const defaultPort = "8080"
@@ -22,7 +24,16 @@ func main() {
 		port = defaultPort
 	}
 
-	srv := handler.New(graph.NewExecutableSchema(graph.Config{Resolvers: &graph.Resolver{}}))
+	inmemoryStorage := inmemory.NewInMemoryRepository()
+	svc := service.NewService(inmemoryStorage)
+
+	srv := handler.New(graph.NewExecutableSchema(
+		graph.Config{
+			Resolvers: &graph.Resolver{
+				Service: svc,
+			},
+		}),
+	)
 
 	srv.AddTransport(transport.Options{})
 	srv.AddTransport(transport.GET{})
