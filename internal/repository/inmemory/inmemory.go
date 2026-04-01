@@ -3,6 +3,7 @@ package inmemory
 import (
 	"context"
 	"fmt"
+	"log"
 	"sort"
 	"sync"
 
@@ -33,12 +34,13 @@ func NewInMemoryRepository() *InMemoryRepository {
 // корректно реализует интерфейс Repository
 var _ repo.Repository = (*InMemoryRepository)(nil)
 
-// CreatePost сохраняет пост в inmemory хранилище
+// CreatePost сохраняет пост в in-memory хранилище
 func (r *InMemoryRepository) CreatePost(ctx context.Context, post *domain.Post) error {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 
 	r.posts[post.ID] = post
+	log.Println("[INFO] successfully created and saved post to in-memory storage:", post.ID)
 	return nil
 }
 
@@ -49,8 +51,10 @@ func (r *InMemoryRepository) GetPostByID(ctx context.Context, id string) (*domai
 
 	post, ok := r.posts[id]
 	if !ok {
+		log.Println("[WARN] could not find post in in-memory storage:", post.ID)
 		return nil, nil
 	}
+	log.Println("[INFO] successfully retrieved post from in-memory storage:", post.ID)
 	return post, nil
 }
 
@@ -74,6 +78,7 @@ func (r *InMemoryRepository) GetPosts(ctx context.Context, limit, offset int) ([
 	})
 
 	end := min(offset+limit, len(postsList))
+	log.Println("[INFO] successfully retrieved posts from in-memory storage")
 	return postsList[offset:end], nil
 }
 
@@ -87,6 +92,7 @@ func (r *InMemoryRepository) SetCommentsEnabled(ctx context.Context, postID stri
 		return nil, fmt.Errorf("post with ID %s not found", postID)
 	}
 	post.CommentsEnabled = enabled
+	log.Println("[INFO] successfully set CommentsEnabled:", enabled)
 	return post, nil
 }
 
@@ -114,6 +120,7 @@ func (r *InMemoryRepository) DeletePost(ctx context.Context, id string) error {
 
 	delete(r.commentsIndex, id)
 	delete(r.posts, id)
+	log.Println("[INFO] successfully deleted post from in-memory storage:", id)
 	return nil
 }
 
@@ -147,6 +154,7 @@ func (r *InMemoryRepository) CreateComment(ctx context.Context, comment *domain.
 	// И добавляем в общее хранилище
 	r.comments[comment.ID] = comment
 
+	log.Println("[INFO] successfully created and saved comment to in-memory storage:", comment.ID)
 	return nil
 }
 
@@ -157,8 +165,10 @@ func (r *InMemoryRepository) GetCommentByID(ctx context.Context, id string) (*do
 
 	comment, ok := r.comments[id]
 	if !ok {
+		log.Println("[WARN] could not find comment in in-memory storage:", id)
 		return nil, nil
 	}
+	log.Println("[INFO] successfully retrieved comment from in-memory storage:", id)
 	return comment, nil
 }
 
@@ -199,6 +209,7 @@ func (r *InMemoryRepository) GetComments(ctx context.Context, postID string, par
 	})
 
 	end := min(offset+limit, len(commentsList))
+	log.Println("[INFO] successfully retrieved comments from in-memory storage")
 	return commentsList[offset:end], nil
 }
 
@@ -213,6 +224,7 @@ func (r *InMemoryRepository) DeleteComment(ctx context.Context, id string) error
 	}
 
 	r.deleteCommentRecursively(ctx, id)
+	log.Println("[INFO] successfully deleted comment from in-memory storage:", id)
 	return nil
 }
 
