@@ -19,7 +19,8 @@ func TestServiceCreatePost(t *testing.T) {
 	defer ctrl.Finish()
 
 	mockRepo := mocks.NewMockRepository(ctrl)
-	s := NewService(mockRepo)
+	pubSub := NewCommentPubSub()
+	s := NewService(mockRepo, pubSub)
 
 	ctx := context.Background()
 
@@ -153,7 +154,8 @@ func TestServiceGetPostsAndGetPostByID(t *testing.T) {
 	defer ctrl.Finish()
 
 	mockRepo := mocks.NewMockRepository(ctrl)
-	s := NewService(mockRepo)
+	pubSub := NewCommentPubSub()
+	s := NewService(mockRepo, pubSub)
 
 	ctx := context.Background()
 
@@ -307,7 +309,8 @@ func TestServiceSetCommentsEnabled(t *testing.T) {
 	defer ctrl.Finish()
 
 	mockRepo := mocks.NewMockRepository(ctrl)
-	s := NewService(mockRepo)
+	pubSub := NewCommentPubSub()
+	s := NewService(mockRepo, pubSub)
 
 	ctx := context.Background()
 
@@ -395,7 +398,8 @@ func TestServiceDeletePost(t *testing.T) {
 	defer ctrl.Finish()
 
 	mockRepo := mocks.NewMockRepository(ctrl)
-	s := NewService(mockRepo)
+	pubSub := NewCommentPubSub()
+	s := NewService(mockRepo, pubSub)
 
 	ctx := context.Background()
 
@@ -465,7 +469,8 @@ func TestServiceCreateComment(t *testing.T) {
 	defer ctrl.Finish()
 
 	mockRepo := mocks.NewMockRepository(ctrl)
-	s := NewService(mockRepo)
+	pubSub := NewCommentPubSub()
+	s := NewService(mockRepo, pubSub)
 
 	ctx := context.Background()
 
@@ -616,7 +621,8 @@ func TestServiceGetCommentsAndGetCommentsByID(t *testing.T) {
 	defer ctrl.Finish()
 
 	mockRepo := mocks.NewMockRepository(ctrl)
-	s := NewService(mockRepo)
+	pubSub := NewCommentPubSub()
+	s := NewService(mockRepo, pubSub)
 
 	ctx := context.Background()
 
@@ -809,7 +815,8 @@ func TestServiceDeleteComment(t *testing.T) {
 	defer ctrl.Finish()
 
 	mockRepo := mocks.NewMockRepository(ctrl)
-	s := NewService(mockRepo)
+	pubSub := NewCommentPubSub()
+	s := NewService(mockRepo, pubSub)
 
 	ctx := context.Background()
 
