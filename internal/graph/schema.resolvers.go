@@ -8,6 +8,7 @@ package graph
 import (
 	"context"
 	"fmt"
+	"log"
 
 	"github.com/xvnvdu/threads-service/internal/domain"
 	model1 "github.com/xvnvdu/threads-service/internal/graph/model"
@@ -209,7 +210,38 @@ func (r *queryResolver) Comment(ctx context.Context, id string) (*model1.Comment
 
 // CommentAdded is the resolver for the commentAdded field.
 func (r *subscriptionResolver) CommentAdded(ctx context.Context, postID string) (<-chan *model1.Comment, error) {
-	panic(fmt.Errorf("not implemented: CommentAdded - commentAdded"))
+	ch := make(chan *model1.Comment)
+
+	sub, err := r.Service.Subscribe(postID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to subscribe: %w", err)
+	}
+
+	go func() {
+		defer close(ch) // Канал нужно будет закрыть при завершении горутины
+		for {
+			select {
+			case <-ctx.Done():
+				log.Printf("[INFO] subscription closed for post ID: %s", postID)
+				return
+			case comment, ok := <-sub: // Читаем коммент из PubSub
+				if !ok {
+					log.Printf("[WARN] subscription channel closed for post ID: %s", postID)
+					return
+				}
+				ch <- &model1.Comment{
+					ID:        comment.ID,
+					Content:   comment.Content,
+					AuthorID:  comment.AuthorID,
+					PostID:    comment.PostID,
+					ParentID:  comment.ParentID,
+					CreatedAt: comment.CreatedAt,
+				}
+			}
+		}
+	}()
+
+	return ch, nil
 }
 
 // Mutation returns MutationResolver implementation.

@@ -17,7 +17,8 @@ const (
 )
 
 type service struct {
-	repo repository.Repository
+	repo   repository.Repository
+	pubSub *CommentPubSub
 }
 
 type Service interface {
@@ -31,13 +32,15 @@ type Service interface {
 	GetCommentByID(ctx context.Context, id string) (*domain.Comment, error)
 	GetComments(ctx context.Context, postID string, parentID *string, limit, offset int, order repository.CommentSortOrder) ([]*domain.Comment, error)
 	DeleteComment(ctx context.Context, id string) error
+
+	Subscribe(postID string) (<-chan *domain.Comment, error)
 }
 
 // Проверяем, что объект сервиса корректно реализует интерфейс
 var _ Service = (*service)(nil)
 
-func NewService(repo repository.Repository) Service {
-	return &service{repo: repo}
+func NewService(repo repository.Repository, pubSub *CommentPubSub) Service {
+	return &service{repo: repo, pubSub: pubSub}
 }
 
 // CreatePost валидирует данные поста и передает его на сохранение в бд
@@ -151,6 +154,8 @@ func (s *service) CreateComment(ctx context.Context, comment *domain.Comment) (*
 	if err := s.repo.CreateComment(ctx, comment); err != nil {
 		return nil, fmt.Errorf("service: failed to create comment: %w", err)
 	}
+
+	s.pubSub.Publish(comment.PostID, comment)
 	return comment, nil
 }
 
@@ -205,4 +210,8 @@ func (s *service) DeleteComment(ctx context.Context, id string) error {
 		return fmt.Errorf("service: failed to delete comment: %w", err)
 	}
 	return nil
+}
+
+func (s *service) Subscribe(postID string) (<-chan *domain.Comment, error) {
+	return s.pubSub.Subscribe(postID)
 }

@@ -4,6 +4,7 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"time"
 
 	"github.com/99designs/gqlgen/graphql/handler"
 	"github.com/99designs/gqlgen/graphql/handler/extension"
@@ -25,7 +26,8 @@ func main() {
 	}
 
 	inmemoryStorage := inmemory.NewInMemoryRepository()
-	svc := service.NewService(inmemoryStorage)
+	pubSub := service.NewCommentPubSub()
+	svc := service.NewService(inmemoryStorage, pubSub)
 
 	srv := handler.New(graph.NewExecutableSchema(
 		graph.Config{
@@ -34,6 +36,9 @@ func main() {
 			},
 		}),
 	)
+	srv.AddTransport(transport.Websocket{
+		KeepAlivePingInterval: 5 * time.Second,
+	})
 
 	srv.AddTransport(transport.Options{})
 	srv.AddTransport(transport.GET{})
