@@ -51,7 +51,7 @@ func (r *InMemoryRepository) GetPostByID(ctx context.Context, id string) (*domai
 
 	post, ok := r.posts[id]
 	if !ok {
-		log.Println("[WARN] could not find post in in-memory storage:", post.ID)
+		log.Println("[WARN] could not find post in in-memory storage:", id)
 		return nil, nil
 	}
 	log.Println("[INFO] successfully retrieved post from in-memory storage:", post.ID)

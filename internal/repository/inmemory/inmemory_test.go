@@ -9,6 +9,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/xvnvdu/threads-service/internal/domain"
+	"github.com/xvnvdu/threads-service/internal/repository"
 )
 
 func createTestPost(t *testing.T, r *InMemoryRepository, authorID, title, content string, commentsEnabled bool) *domain.Post {
@@ -244,6 +245,7 @@ func TestInMemoryRepositoryCreateComment(t *testing.T) {
 
 	// Ответ на комментарий
 	comment1_1 := &domain.Comment{
+		ID:       uuid.New().String(),
 		PostID:   post1.ID,
 		AuthorID: "user2",
 		Content:  "Reply to first comment",
@@ -489,5 +491,141 @@ func TestInMemoryRepositorySetCommentsEnabled(t *testing.T) {
 		t.Error("Expected error for non-existent post, got nil")
 	} else {
 		t.Logf("Correctly received expected error for non-existent post: %v", err)
+	}
+}
+
+func TestInMemoryRepositoryGetComments(t *testing.T) {
+	r := NewInMemoryRepository()
+	ctx := context.Background()
+
+	t.Log("Creating test post...")
+	post := createTestPost(t, r, "user1", "Post", "Content", true)
+
+	t.Log("Creating comments...")
+	time.Sleep(1 * time.Millisecond)
+	c1 := createTestComment(t, r, post.ID, "u1", "C1", nil)
+
+	time.Sleep(1 * time.Millisecond)
+	c2 := createTestComment(t, r, post.ID, "u2", "C2", nil)
+
+	time.Sleep(1 * time.Millisecond)
+	c3 := createTestComment(t, r, post.ID, "u3", "C3", nil)
+
+	t.Log("Creating nested comments...")
+	time.Sleep(1 * time.Millisecond)
+	c1_1 := createTestComment(t, r, post.ID, "u4", "C1.1", &c1.ID)
+
+	time.Sleep(1 * time.Millisecond)
+	c1_2 := createTestComment(t, r, post.ID, "u5", "C1.2", &c1.ID)
+
+	tests := []struct {
+		name      string
+		postID    string
+		parentID  *string
+		limit     int
+		offset    int
+		order     repository.CommentSortOrder
+		wantIDs   []string
+		wantError bool
+	}{
+		{
+			name:      "Post does not exist",
+			postID:    "non-existent",
+			parentID:  nil,
+			limit:     10,
+			offset:    0,
+			order:     repository.CommentSortNewestFirst,
+			wantError: true,
+		},
+		{
+			name:     "Get root comments newest first",
+			postID:   post.ID,
+			parentID: nil,
+			limit:    10,
+			offset:   0,
+			order:    repository.CommentSortNewestFirst,
+			wantIDs:  []string{c3.ID, c2.ID, c1.ID},
+		},
+		{
+			name:     "Get root comments oldest first",
+			postID:   post.ID,
+			parentID: nil,
+			limit:    10,
+			offset:   0,
+			order:    repository.CommentSortOldestFirst,
+			wantIDs:  []string{c1.ID, c2.ID, c3.ID},
+		},
+		{
+			name:     "Get child comments (forced oldest)",
+			postID:   post.ID,
+			parentID: &c1.ID,
+			limit:    10,
+			offset:   0,
+			order:    repository.CommentSortOldestFirst,
+			wantIDs:  []string{c1_1.ID, c1_2.ID},
+		},
+		{
+			name:     "Pagination first item",
+			postID:   post.ID,
+			parentID: nil,
+			limit:    1,
+			offset:   0,
+			order:    repository.CommentSortNewestFirst,
+			wantIDs:  []string{c3.ID},
+		},
+		{
+			name:     "Pagination second item",
+			postID:   post.ID,
+			parentID: nil,
+			limit:    1,
+			offset:   1,
+			order:    repository.CommentSortNewestFirst,
+			wantIDs:  []string{c2.ID},
+		},
+		{
+			name:     "Offset out of range",
+			postID:   post.ID,
+			parentID: nil,
+			limit:    10,
+			offset:   100,
+			order:    repository.CommentSortNewestFirst,
+			wantIDs:  []string{},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Logf("Getting comments: postID=%s, parentID=%v, limit=%d, offset=%d",
+				tt.postID, tt.parentID, tt.limit, tt.offset)
+
+			got, err := r.GetComments(ctx, tt.postID, tt.parentID, tt.limit, tt.offset, tt.order)
+
+			if tt.wantError {
+				if err == nil {
+					t.Fatal("Expected error, got nil")
+				}
+				t.Logf("Received expected error: %v", err)
+				return
+			}
+
+			if err != nil {
+				t.Fatalf("Unexpected error: %v", err)
+			}
+
+			if len(got) != len(tt.wantIDs) {
+				t.Fatalf("Expected %d comments, got %d", len(tt.wantIDs), len(got))
+			}
+
+			for i := range got {
+				if got[i].ID != tt.wantIDs[i] {
+					t.Errorf("At index %d got ID %s, want %s", i, got[i].ID, tt.wantIDs[i])
+				}
+			}
+
+			t.Logf("Successfully retrieved %d comments", len(got))
+			for i, c := range got {
+				t.Logf("  [%d] Comment ID: %s", i, c.ID)
+			}
+		})
 	}
 }
