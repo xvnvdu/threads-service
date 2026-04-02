@@ -1,6 +1,7 @@
 package main
 
 import (
+	"flag"
 	"log"
 	"net/http"
 	"os"
@@ -13,6 +14,7 @@ import (
 	"github.com/99designs/gqlgen/graphql/playground"
 	"github.com/vektah/gqlparser/v2/ast"
 	"github.com/xvnvdu/threads-service/internal/graph"
+	"github.com/xvnvdu/threads-service/internal/repository"
 	"github.com/xvnvdu/threads-service/internal/repository/inmemory"
 	"github.com/xvnvdu/threads-service/internal/service"
 )
@@ -25,9 +27,23 @@ func main() {
 		port = defaultPort
 	}
 
-	inmemoryStorage := inmemory.NewInMemoryRepository()
+	storageType := flag.String("storage", "inmemory", "Storage type (inmemory or postgres)")
+	flag.Parse()
+
+	var repo repository.Repository
+
+	switch *storageType {
+	case "inmemory":
+		repo = inmemory.NewInMemoryRepository()
+		log.Println("using in-memory storage")
+	case "postgres":
+		log.Fatalf("postgres storage is not yet implemented, please use -storage=inmemory")
+	default:
+		log.Fatalf("unknown storage type: %s, please use 'inmemory' or 'postgres'", *storageType)
+	}
+
 	pubSub := service.NewCommentPubSub()
-	svc := service.NewService(inmemoryStorage, pubSub)
+	svc := service.NewService(repo, pubSub)
 
 	srv := handler.New(graph.NewExecutableSchema(
 		graph.Config{
