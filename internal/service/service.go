@@ -72,7 +72,7 @@ func (s *service) CreatePost(ctx context.Context, post *domain.Post) (*domain.Po
 // GetPostByID обращается к бд для получения поста по его id
 func (s *service) GetPostByID(ctx context.Context, id string) (*domain.Post, error) {
 	if id == "" {
-		return nil, fmt.Errorf("service: cannot get comment with empty id")
+		return nil, fmt.Errorf("service: cannot get post with empty id")
 	}
 	log.Println("[INFO] service: validated id to get post data:", id)
 
