@@ -12,22 +12,28 @@ import (
 	"github.com/99designs/gqlgen/graphql/handler/lru"
 	"github.com/99designs/gqlgen/graphql/handler/transport"
 	"github.com/99designs/gqlgen/graphql/playground"
+	"github.com/joho/godotenv"
 	"github.com/vektah/gqlparser/v2/ast"
 	"github.com/xvnvdu/threads-service/internal/graph"
 	"github.com/xvnvdu/threads-service/internal/repository"
 	"github.com/xvnvdu/threads-service/internal/repository/inmemory"
+	"github.com/xvnvdu/threads-service/internal/repository/postgres"
 	"github.com/xvnvdu/threads-service/internal/service"
+
+	_ "github.com/lib/pq"
 )
 
 const defaultPort = "8080"
 
 func main() {
+	godotenv.Load()
+
 	port := os.Getenv("PORT")
 	if port == "" {
 		port = defaultPort
 	}
 
-	storageType := flag.String("storage", "inmemory", "Storage type (inmemory or postgres)")
+	storageType := flag.String("storage", "postgres", "Storage type (inmemory or postgres)")
 	flag.Parse()
 
 	var repo repository.Repository
@@ -37,7 +43,17 @@ func main() {
 		repo = inmemory.NewInMemoryRepository()
 		log.Println("using in-memory storage")
 	case "postgres":
-		log.Fatalf("postgres storage is not yet implemented, please use -storage=inmemory")
+		dbUrl := os.Getenv("DB_CONN_STRING")
+		if dbUrl == "" {
+			log.Fatalln("DB_CONN_STRING is not found")
+		}
+		pgRepo, err := postgres.NewPostgresRepository(dbUrl)
+		defer pgRepo.Close()
+		if err != nil {
+			log.Fatalf("failed to init repo: %v", err)
+		}
+		repo = pgRepo
+		log.Println("using postgres storage")
 	default:
 		log.Fatalf("unknown storage type: %s, please use 'inmemory' or 'postgres'", *storageType)
 	}
