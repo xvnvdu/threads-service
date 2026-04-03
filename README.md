@@ -1,5 +1,5 @@
 # Threads Service 
-**Сервис для добавления и чтения постов и комментариев с использованием GraphQL**
+**Сервис для добавления и чтения постов и комментариев с использованием GraphQL и PostgreSQL**
 
 ## Скриншоты
 ![image_1](images/create-post.png)
@@ -22,7 +22,7 @@
 - **Веб-сервер:** net/http
 - **Моки:** mock/gomock (uber)
 - **GraphQL фреймворк:** gqlgen
-- **Хранилище:** In-memory maps
+- **Хранилище:** PostgreSQL / In-memory maps
 
 ## Установка и запуск
 ### Требования и зависимости
@@ -37,17 +37,23 @@ mkdir <YOUR-DIRECTORY-NAME> && cd <YOUR-DIRECTORY-NAME>
 ```
 git clone https://github.com/xvnvdu/threads-service.git && cd threads-service
 ```
-3) Запустите сборку образа и дождитесь ее окончания:
+3) Соберите образы базы данных и сервиса:
 ```
-docker build -t threads-service .
+docker compose build 
 ```
-4) Запустите контейнер:
+4) Запустите контейнер с базой данных в фоновом режиме:
 ```
-docker run -p 8080:8080 threads-service -storage=<CHOOSE-OPTION>
+docker compose up -d db
 ```
-Вы можете выбрать одну из двух опций хранения данных: ```inmemory``` или ```postgres```(еще не реализован)
+Эта команда запустит PostgreSQL на порту **5432**
 
-Флаг опционален. По умолчанию будет использовано ```inmemory```
+5) После этого запустите сам сервис следующей командой:
+```
+docker compose run -p 8080:8080 backend -storage=<CHOOSE-OPTION>
+```
+Вы можете выбрать одну из двух опций хранения данных: ```inmemory``` или ```postgres```
+
+Флаг ```-storage``` опционален. По умолчанию используется ```postgres```
 
 
 
@@ -535,6 +541,205 @@ ok  	github.com/xvnvdu/threads-service/internal/service	0.004s	coverage: 97.1% o
 ```
 </details>
 
+### PostgreSQL хранилище (85.9%)
+1. Перед тем как запустить тесты для бд, пожалуйста, создайте тестовую базу данных, используя команду ниже:
+```
+docker compose exec db psql -U threads_user -d threads_db -c "CREATE DATABASE threads_test_db;"
+```
+2. Также необходимо инициализировать таблицы в бд, для этого используйте следующую команду:
+```
+docker compose exec db psql -U threads_user -d threads_test_db -f /docker-entrypoint-initdb.d/init.sql
+```
+3. После чего вы можете запустить тесты следующим образом:
+```
+go test -coverprofile=coverage.out ./internal/repository/postgres/ -v
+```
+4. А также снова проверить покрытие в сгенерированном html файле:
+```
+go tool cover -html=coverage.out
+```
+
+<details>
+<summary>Результаты тестирования PostgreSQL хранилища</summary>
+
+```
+go test -coverprofile=coverage.out ./internal/repository/postgres/ -v
+=== RUN   TestPostgresRepositoryGetPostByID
+    postgres_test.go:81: creating post with ID: d64dfd82-a2e5-471f-b2e6-54886a84180a
+2026/04/04 01:46:08 [INFO] successfully created and saved post to postgres storage: d64dfd82-a2e5-471f-b2e6-54886a84180a
+=== RUN   TestPostgresRepositoryGetPostByID/post_exists
+    postgres_test.go:109: getting post ID: d64dfd82-a2e5-471f-b2e6-54886a84180a
+2026/04/04 01:46:08 [INFO] successfully retrieved post from postgres storage: d64dfd82-a2e5-471f-b2e6-54886a84180a
+=== RUN   TestPostgresRepositoryGetPostByID/post_does_not_exist
+    postgres_test.go:109: getting post ID: 6d93989c-3247-42f0-b24d-2fc1e563b30d
+2026/04/04 01:46:08 [WARN] post not found in postgres storage: 6d93989c-3247-42f0-b24d-2fc1e563b30d
+--- PASS: TestPostgresRepositoryGetPostByID (0.03s)
+    --- PASS: TestPostgresRepositoryGetPostByID/post_exists (0.00s)
+    --- PASS: TestPostgresRepositoryGetPostByID/post_does_not_exist (0.00s)
+=== RUN   TestPostgresRepositoryGetPosts
+    postgres_test.go:139: creating 5 test posts with distinct CreatedAt...
+    postgres_test.go:140: creating post with ID: 1b1f9ca0-66f2-451f-aa63-7689dc1da919
+2026/04/04 01:46:08 [INFO] successfully created and saved post to postgres storage: 1b1f9ca0-66f2-451f-aa63-7689dc1da919
+    postgres_test.go:142: creating post with ID: 1d7ac23e-9366-4d6b-a74c-0be5b2c28d08
+2026/04/04 01:46:08 [INFO] successfully created and saved post to postgres storage: 1d7ac23e-9366-4d6b-a74c-0be5b2c28d08
+    postgres_test.go:144: creating post with ID: 10ca62c1-5ccb-43b6-b70a-e01d66a7a75c
+2026/04/04 01:46:08 [INFO] successfully created and saved post to postgres storage: 10ca62c1-5ccb-43b6-b70a-e01d66a7a75c
+    postgres_test.go:146: creating post with ID: 1ac32c62-0f5d-42ac-9810-0eacfc5c12f5
+2026/04/04 01:46:08 [INFO] successfully created and saved post to postgres storage: 1ac32c62-0f5d-42ac-9810-0eacfc5c12f5
+    postgres_test.go:148: creating post with ID: afd100c9-7a26-4230-af77-9f20d908eac1
+2026/04/04 01:46:08 [INFO] successfully created and saved post to postgres storage: afd100c9-7a26-4230-af77-9f20d908eac1
+    postgres_test.go:151: posts created with IDs (newest to oldest): afd100c9-7a26-4230-af77-9f20d908eac1, 1ac32c62-0f5d-42ac-9810-0eacfc5c12f5, 10ca62c1-5ccb-43b6-b70a-e01d66a7a75c, 1d7ac23e-9366-4d6b-a74c-0be5b2c28d08, 1b1f9ca0-66f2-451f-aa63-7689dc1da919
+=== RUN   TestPostgresRepositoryGetPosts/First_2_posts
+    postgres_test.go:169: getting posts with Limit: 2, Offset: 0
+2026/04/04 01:46:08 [INFO] successfully retrieved posts from postgres storage
+    postgres_test.go:185: successfully retrieved 2 posts.
+=== RUN   TestPostgresRepositoryGetPosts/Next_2_posts
+    postgres_test.go:169: getting posts with Limit: 2, Offset: 2
+2026/04/04 01:46:08 [INFO] successfully retrieved posts from postgres storage
+    postgres_test.go:185: successfully retrieved 2 posts.
+=== RUN   TestPostgresRepositoryGetPosts/Last_post
+    postgres_test.go:169: getting posts with Limit: 2, Offset: 4
+2026/04/04 01:46:08 [INFO] successfully retrieved posts from postgres storage
+    postgres_test.go:185: successfully retrieved 1 posts.
+=== RUN   TestPostgresRepositoryGetPosts/All_posts
+    postgres_test.go:169: getting posts with Limit: 10, Offset: 0
+2026/04/04 01:46:08 [INFO] successfully retrieved posts from postgres storage
+    postgres_test.go:185: successfully retrieved 5 posts.
+=== RUN   TestPostgresRepositoryGetPosts/Large_limit
+    postgres_test.go:169: getting posts with Limit: 100, Offset: 0
+2026/04/04 01:46:08 [INFO] successfully retrieved posts from postgres storage
+    postgres_test.go:185: successfully retrieved 5 posts.
+--- PASS: TestPostgresRepositoryGetPosts (0.06s)
+    --- PASS: TestPostgresRepositoryGetPosts/First_2_posts (0.00s)
+    --- PASS: TestPostgresRepositoryGetPosts/Next_2_posts (0.00s)
+    --- PASS: TestPostgresRepositoryGetPosts/Last_post (0.00s)
+    --- PASS: TestPostgresRepositoryGetPosts/All_posts (0.00s)
+    --- PASS: TestPostgresRepositoryGetPosts/Large_limit (0.00s)
+=== RUN   TestPostgresRepositorySetCommentsEnabled
+    postgres_test.go:196: creating test post...
+    postgres_test.go:197: creating post with ID: 04b7e7b9-e9bd-458d-b7eb-0e02f09abba0
+2026/04/04 01:46:08 [INFO] successfully created and saved post to postgres storage: 04b7e7b9-e9bd-458d-b7eb-0e02f09abba0
+=== RUN   TestPostgresRepositorySetCommentsEnabled/Disable_comments
+    postgres_test.go:212: setting CommentsEnabled: false for postID: 04b7e7b9-e9bd-458d-b7eb-0e02f09abba0
+2026/04/04 01:46:08 [INFO] successfully set CommentsEnabled: false
+2026/04/04 01:46:08 [INFO] successfully retrieved post from postgres storage: 04b7e7b9-e9bd-458d-b7eb-0e02f09abba0
+=== RUN   TestPostgresRepositorySetCommentsEnabled/Enable_comments_again
+    postgres_test.go:212: setting CommentsEnabled: true for postID: 04b7e7b9-e9bd-458d-b7eb-0e02f09abba0
+2026/04/04 01:46:08 [INFO] successfully set CommentsEnabled: true
+2026/04/04 01:46:08 [INFO] successfully retrieved post from postgres storage: 04b7e7b9-e9bd-458d-b7eb-0e02f09abba0
+=== RUN   TestPostgresRepositorySetCommentsEnabled/Non-existent_post
+    postgres_test.go:212: setting CommentsEnabled: true for postID: non-existent-id
+--- PASS: TestPostgresRepositorySetCommentsEnabled (0.04s)
+    --- PASS: TestPostgresRepositorySetCommentsEnabled/Disable_comments (0.01s)
+    --- PASS: TestPostgresRepositorySetCommentsEnabled/Enable_comments_again (0.01s)
+    --- PASS: TestPostgresRepositorySetCommentsEnabled/Non-existent_post (0.00s)
+=== RUN   TestPostgresRepositoryDeletePost
+    postgres_test.go:245: creating test post...
+    postgres_test.go:246: creating post with ID: d5f6740d-acf0-43cf-b727-9ab3742d6ab0
+2026/04/04 01:46:08 [INFO] successfully created and saved post to postgres storage: d5f6740d-acf0-43cf-b727-9ab3742d6ab0
+=== RUN   TestPostgresRepositoryDeletePost/Delete_existing_post
+    postgres_test.go:259: deleting post with ID: d5f6740d-acf0-43cf-b727-9ab3742d6ab0
+2026/04/04 01:46:08 [INFO] successfully deleted post from postgres storage: d5f6740d-acf0-43cf-b727-9ab3742d6ab0
+2026/04/04 01:46:08 [WARN] post not found in postgres storage: d5f6740d-acf0-43cf-b727-9ab3742d6ab0
+=== RUN   TestPostgresRepositoryDeletePost/Delete_non-existent_post
+    postgres_test.go:259: deleting post with ID: non-existent-id
+--- PASS: TestPostgresRepositoryDeletePost (0.04s)
+    --- PASS: TestPostgresRepositoryDeletePost/Delete_existing_post (0.01s)
+    --- PASS: TestPostgresRepositoryDeletePost/Delete_non-existent_post (0.00s)
+=== RUN   TestPostgresRepositoryGetCommentByID
+    postgres_test.go:282: creating test post and comment...
+    postgres_test.go:283: creating post with ID: 5339b83f-0148-40b2-b53a-35dbe0ec23b9
+2026/04/04 01:46:08 [INFO] successfully created and saved post to postgres storage: 5339b83f-0148-40b2-b53a-35dbe0ec23b9
+    postgres_test.go:284: creating comment with ID: cdaca3fa-fd9a-4bab-9e94-e44642210869, postID: 5339b83f-0148-40b2-b53a-35dbe0ec23b9, parentID: <nil>
+2026/04/04 01:46:08 [INFO] successfully created and saved comment to postgres storage: cdaca3fa-fd9a-4bab-9e94-e44642210869
+=== RUN   TestPostgresRepositoryGetCommentByID/Comment_exists
+    postgres_test.go:297: getting comment with ID: cdaca3fa-fd9a-4bab-9e94-e44642210869
+2026/04/04 01:46:08 [INFO] successfully retrieved comment from postgres storage: cdaca3fa-fd9a-4bab-9e94-e44642210869
+=== RUN   TestPostgresRepositoryGetCommentByID/Comment_does_not_exist
+    postgres_test.go:297: getting comment with ID: b1676277-52ea-4f78-acfb-ae0555c5350b
+2026/04/04 01:46:08 [WARN] could not find comment in postgres storage: b1676277-52ea-4f78-acfb-ae0555c5350b
+--- PASS: TestPostgresRepositoryGetCommentByID (0.04s)
+    --- PASS: TestPostgresRepositoryGetCommentByID/Comment_exists (0.00s)
+    --- PASS: TestPostgresRepositoryGetCommentByID/Comment_does_not_exist (0.00s)
+=== RUN   TestPostgresRepositoryGetComments
+    postgres_test.go:328: creating test post and comments...
+    postgres_test.go:329: creating post with ID: 83e140fc-232d-4cf3-9a67-20d64c2eb3ec
+2026/04/04 01:46:08 [INFO] successfully created and saved post to postgres storage: 83e140fc-232d-4cf3-9a67-20d64c2eb3ec
+    postgres_test.go:333: creating comment with ID: 54a2e714-e37b-4d22-8890-2fb75164cb9d, postID: 83e140fc-232d-4cf3-9a67-20d64c2eb3ec, parentID: <nil>
+2026/04/04 01:46:08 [INFO] successfully created and saved comment to postgres storage: 54a2e714-e37b-4d22-8890-2fb75164cb9d
+    postgres_test.go:335: creating comment with ID: 161ee45f-2be0-4dc7-a182-002c3f0bbf25, postID: 83e140fc-232d-4cf3-9a67-20d64c2eb3ec, parentID: <nil>
+2026/04/04 01:46:08 [INFO] successfully created and saved comment to postgres storage: 161ee45f-2be0-4dc7-a182-002c3f0bbf25
+    postgres_test.go:339: creating comment with ID: 474a7619-0222-4550-a972-84b2524f3bbe, postID: 83e140fc-232d-4cf3-9a67-20d64c2eb3ec, parentID: 0xc000226b00
+2026/04/04 01:46:08 [INFO] successfully created and saved comment to postgres storage: 474a7619-0222-4550-a972-84b2524f3bbe
+    postgres_test.go:341: creating comment with ID: 71a04316-a0e6-4aa8-ba37-93c57821af8b, postID: 83e140fc-232d-4cf3-9a67-20d64c2eb3ec, parentID: 0xc000226b00
+2026/04/04 01:46:08 [INFO] successfully created and saved comment to postgres storage: 71a04316-a0e6-4aa8-ba37-93c57821af8b
+=== RUN   TestPostgresRepositoryGetComments/Get_root_comments_newest_first
+2026/04/04 01:46:08 [INFO] successfully retrieved comments from postgres storage
+=== RUN   TestPostgresRepositoryGetComments/Get_root_comments_oldest_first
+2026/04/04 01:46:08 [INFO] successfully retrieved comments from postgres storage
+=== RUN   TestPostgresRepositoryGetComments/Get_replies_to_root1_newest_first
+2026/04/04 01:46:08 [INFO] successfully retrieved comments from postgres storage
+=== RUN   TestPostgresRepositoryGetComments/Get_replies_to_root1_oldest_first
+2026/04/04 01:46:08 [INFO] successfully retrieved comments from postgres storage
+=== RUN   TestPostgresRepositoryGetComments/Pagination_test_limit_1
+2026/04/04 01:46:08 [INFO] successfully retrieved comments from postgres storage
+=== RUN   TestPostgresRepositoryGetComments/Pagination_test_limit_1_offset_1
+2026/04/04 01:46:08 [INFO] successfully retrieved comments from postgres storage
+--- PASS: TestPostgresRepositoryGetComments (0.07s)
+    --- PASS: TestPostgresRepositoryGetComments/Get_root_comments_newest_first (0.00s)
+    --- PASS: TestPostgresRepositoryGetComments/Get_root_comments_oldest_first (0.00s)
+    --- PASS: TestPostgresRepositoryGetComments/Get_replies_to_root1_newest_first (0.00s)
+    --- PASS: TestPostgresRepositoryGetComments/Get_replies_to_root1_oldest_first (0.00s)
+    --- PASS: TestPostgresRepositoryGetComments/Pagination_test_limit_1 (0.00s)
+    --- PASS: TestPostgresRepositoryGetComments/Pagination_test_limit_1_offset_1 (0.00s)
+=== RUN   TestPostgresRepositoryDeleteComment
+    postgres_test.go:430: creating test post and comment...
+    postgres_test.go:431: creating post with ID: 6775fe72-88fe-493d-9ca8-08f8da8da23b
+2026/04/04 01:46:08 [INFO] successfully created and saved post to postgres storage: 6775fe72-88fe-493d-9ca8-08f8da8da23b
+    postgres_test.go:432: creating comment with ID: 7ac046c3-e1b1-4fd5-8241-86b1a2eaef24, postID: 6775fe72-88fe-493d-9ca8-08f8da8da23b, parentID: <nil>
+2026/04/04 01:46:08 [INFO] successfully created and saved comment to postgres storage: 7ac046c3-e1b1-4fd5-8241-86b1a2eaef24
+=== RUN   TestPostgresRepositoryDeleteComment/Delete_existing_comment
+    postgres_test.go:445: deleting comment with ID: 7ac046c3-e1b1-4fd5-8241-86b1a2eaef24
+2026/04/04 01:46:08 [INFO] successfully deleted comment from postgres storage: 7ac046c3-e1b1-4fd5-8241-86b1a2eaef24
+=== RUN   TestPostgresRepositoryDeleteComment/Delete_non-existent_comment
+    postgres_test.go:445: deleting comment with ID: 7ac046c3-e1b1-4fd5-8241-86b1a2eaef24
+2026/04/04 01:46:08 [WARN] could not find comment in postgres storage: 7ac046c3-e1b1-4fd5-8241-86b1a2eaef24
+--- PASS: TestPostgresRepositoryDeleteComment (0.04s)
+    --- PASS: TestPostgresRepositoryDeleteComment/Delete_existing_comment (0.01s)
+    --- PASS: TestPostgresRepositoryDeleteComment/Delete_non-existent_comment (0.00s)
+=== RUN   TestPostgresRepositoryOnDeleteCascade
+    postgres_test.go:468: creating test post...
+    postgres_test.go:469: creating post with ID: 9a409928-2029-47ae-a095-4e72888b5a5d
+2026/04/04 01:46:08 [INFO] successfully created and saved post to postgres storage: 9a409928-2029-47ae-a095-4e72888b5a5d
+    postgres_test.go:471: creating test root comments...
+    postgres_test.go:472: creating comment with ID: 382fc223-9dd9-4a2a-8909-58b3c30f0ab8, postID: 9a409928-2029-47ae-a095-4e72888b5a5d, parentID: <nil>
+2026/04/04 01:46:08 [INFO] successfully created and saved comment to postgres storage: 382fc223-9dd9-4a2a-8909-58b3c30f0ab8
+    postgres_test.go:473: creating comment with ID: 72ac7109-3753-4490-b911-93b59bfc6e85, postID: 9a409928-2029-47ae-a095-4e72888b5a5d, parentID: <nil>
+2026/04/04 01:46:08 [INFO] successfully created and saved comment to postgres storage: 72ac7109-3753-4490-b911-93b59bfc6e85
+    postgres_test.go:475: creating test replies...
+    postgres_test.go:476: creating comment with ID: b77cd4d5-a59d-4d32-bbdc-697b96e93b82, postID: 9a409928-2029-47ae-a095-4e72888b5a5d, parentID: 0xc0000d1a00
+2026/04/04 01:46:08 [INFO] successfully created and saved comment to postgres storage: b77cd4d5-a59d-4d32-bbdc-697b96e93b82
+    postgres_test.go:477: creating comment with ID: 577fb2c8-6d86-4c71-ab5b-fd96b39d71ed, postID: 9a409928-2029-47ae-a095-4e72888b5a5d, parentID: 0xc0000d1a00
+2026/04/04 01:46:08 [INFO] successfully created and saved comment to postgres storage: 577fb2c8-6d86-4c71-ab5b-fd96b39d71ed
+=== RUN   TestPostgresRepositoryOnDeleteCascade/Delete_root_comment_with_replies
+    postgres_test.go:492: deleting root comment with ID: 382fc223-9dd9-4a2a-8909-58b3c30f0ab8
+2026/04/04 01:46:08 [INFO] successfully deleted comment from postgres storage: 382fc223-9dd9-4a2a-8909-58b3c30f0ab8
+    postgres_test.go:496: trying to get deleted replies by ID...
+2026/04/04 01:46:08 [WARN] could not find comment in postgres storage: b77cd4d5-a59d-4d32-bbdc-697b96e93b82
+2026/04/04 01:46:08 [WARN] could not find comment in postgres storage: 577fb2c8-6d86-4c71-ab5b-fd96b39d71ed
+=== RUN   TestPostgresRepositoryOnDeleteCascade/Delete_post_with_comments
+    postgres_test.go:506: deleting post with ID: 9a409928-2029-47ae-a095-4e72888b5a5d
+2026/04/04 01:46:08 [INFO] successfully deleted post from postgres storage: 9a409928-2029-47ae-a095-4e72888b5a5d
+    postgres_test.go:510: trying to get comment on deleted post...
+2026/04/04 01:46:08 [WARN] could not find comment in postgres storage: 72ac7109-3753-4490-b911-93b59bfc6e85
+--- PASS: TestPostgresRepositoryOnDeleteCascade (0.07s)
+    --- PASS: TestPostgresRepositoryOnDeleteCascade/Delete_root_comment_with_replies (0.01s)
+    --- PASS: TestPostgresRepositoryOnDeleteCascade/Delete_post_with_comments (0.01s)
+PASS
+coverage: 85.9% of statements
+ok  	github.com/xvnvdu/threads-service/internal/repository/postgres	0.401s	coverage: 85.9% of statements
+```
+</details>
 
 ## Архитектура
 1) **```cmd/server/main.go```**
@@ -551,26 +756,39 @@ ok  	github.com/xvnvdu/threads-service/internal/service	0.004s	coverage: 97.1% o
 - Реализованы резолверы для общения с сервисным слоем
 
 4) **```internal/repository/inmemory```**
-- In-memory хранилище на основе мап
+- In-memory хранилище на основе map
 - Тестирование in-memory хранилища
 
-5) **```internal/repository/mocks```**
+5) **```internal/repository/postgres```**
+- Реализация репозитория через PostgreSQL
+- Тестирование взаимодействия сервиса с PostgreSQL
+
+6) **```internal/repository/mocks```**
 - Моки для интерфейса репозитория, сгенерированные через mock/gomock
 
-6) **```internal/service/```**
+7) **```internal/service/```**
 - Сервисный слой приложения:
     - Содержит бизнес-логику для валидации данных и их передачи в репозиторий
     - Реализована подписка на получение новых комментариев для поста 
     - Тестирование сервисного слоя и подписки
 
-7) **```gqlgen.yml```**
+8) **```sql/init.sql```**
+- Стартовый скрипт инициализации таблиц для базы данных
+
+9) **```.env```**
+- Переменные окружения, используемые приложением
+
+10) **```Dockerfile```** и **```docker-compose.yml```**
+- Файлы конфигурации Docker-окружения для сборки сервиса и базы данных
+
+11) **```gqlgen.yml```**
 - Конфиг-файл для генерации кода через фреймворк gqlgen
 
 ## Полезное
 
 ### 🔮 GraphQL Cheat Sheet
 #### **Переменные:**
-```
+```json
 {
   "postId": "<INSERT_YOUR_VALUE>",
   "commentId": "<INSERT_YOUR_VALUE>",
@@ -716,74 +934,3 @@ subscription Subscribe($postId: ID!) {
 }
 ```
 
-### ⚠️ Поля Post.Comments и Comment.Children
-**Проблема:** в текущей реализации приложения объекты Post и Comment не хранят в себе
-списки комментариев и детей соответственно. То есть, при попытке получить, например, пост
-с явным запросом комментариев:
-```
-query GetSinglePost($id: ID!) {
-  post(id: $id) {
-    id
-    title
-    content
-    createdAt
-    comments(offset:0, limit:10){
-      id
-    }
-  }
-}
-```
-Список комментариев будет пустым из-за того, что в приложении не происходит его наполнение:
-```
-{
-  "data": {
-    "post": {
-      "id": "1910cbe6-9d03-434c-8a4c-46d0c42e3678",
-      "title": "My post",
-      "content": "Hello world 123",
-      "createdAt": "2026-04-02T13:05:47.386857975+03:00",
-      "comments": []
-    }
-  }
-}
-```
-При этом все еще можно без проблем получить список комментариев через GetComments, явно указав желаемый пост:
-```
-{
-  "data": {
-    "comments": [
-      {
-        "id": "2cffed28-dbe9-4d50-b56f-82461428caa5",
-        "postID": "1910cbe6-9d03-434c-8a4c-46d0c42e3678",
-        "content": "Such a boring post lmao",
-        "authorID": "author-999",
-        "parentID": null,
-        "createdAt": "2026-04-02T13:12:32.471617531+03:00"
-      },
-      {
-        "id": "45e9eeb4-12bf-400b-8a40-8654864c7450",
-        "postID": "1910cbe6-9d03-434c-8a4c-46d0c42e3678",
-        "content": "Oh hey there",
-        "authorID": "author-222",
-        "parentID": null,
-        "createdAt": "2026-04-02T13:10:22.056288681+03:00"
-      }
-    ]
-  }
-}
-```
-**Почему так ?:** хотя эти поля существуют и, в целом, можно реализовать подобный функционал, сделано это
-было для того, чтобы не перегружать сервис рекурсией и не усложнять имеющуюся логику.
-
-**А что можно сделать ?:** по большому счету, достаточно реализовать дополнительный рекурсивный метод,
-который будет собирать дерево комментариев из запрашиваемых root (для текущего уровня) комментов.
-
-**И как это будет выглядеть ?:** мы можем задать своего рода guardrails, чтобы рекурсия не уходила слишком глубоко,
-когда нам это не нужно. Например, нам достаточно собрать только ```limit``` комментариев верхнего уровня с указанным ```offset```, если нас не интересуют дети этих комментариев.
-То есть просто вернуть "плоский" список. Если же мы требуется получить список комментариев с указанием их детей, не важно под постом или в качестве ответа на другой 
-комментарий (логика та же), то нужно добавить ограничение глубины и ограничение количества элементов по ```limit``` на каждом "уровне" дерева.
-Однако тут у нас, опять же, повышается нагрузка и API становится менее гибким, потому что клиент по сути не управляет глубиной и
-всегда получает заранее сформированную структуру
-
-Идеальным вариантом, пожалуй, была бы реализация полей-резолверов для ```comments``` и ```children```, чтобы API сам решал,
-когда нам нужно подгружать комментарии, как и сколько.
