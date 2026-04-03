@@ -13,4 +13,3 @@ COPY --from=builder /threads-service .
 
 EXPOSE 8080
 ENTRYPOINT ["./threads-service"]
-CMD ["-storage=inmemory"]
